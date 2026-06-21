@@ -189,3 +189,67 @@ class SortVisualizer:
             self._animation.event_source.stop()
         self._paused = not self._paused
         self.pause_button.label.set_text("계속" if self._paused else "일시정지")
+
+    def show_compare_setup(self):
+        self._clear_figure()
+        self.fig.suptitle("전체 성능 비교 - 배열 크기 설정", fontsize=14)
+
+        size_ax = self.fig.add_axes([0.25, 0.55, 0.5, 0.06])
+        self.compare_size_slider = Slider(
+            size_ax, "배열 크기", MIN_SIZE, MAX_SIZE, valinit=self.array_size, valstep=1,
+        )
+        self._widgets.append(self.compare_size_slider)
+
+        start_ax = self.fig.add_axes([0.35, 0.35, 0.3, 0.08])
+        start_button = Button(start_ax, "측정 시작")
+        start_button.on_clicked(lambda event: self._run_compare())
+        self._widgets.append(start_button)
+
+        menu_ax = self.fig.add_axes([0.35, 0.2, 0.3, 0.08])
+        menu_button = Button(menu_ax, "메뉴로")
+        menu_button.on_clicked(lambda event: self.show_menu())
+        self._widgets.append(menu_button)
+
+        self.fig.canvas.draw_idle()
+
+    def _run_compare(self):
+        self.array_size = int(self.compare_size_slider.val)
+        array = metrics.generate_array(self.array_size)
+        result = metrics.run_comparison(array)
+        self.show_compare_result(result)
+
+    def show_compare_result(self, result):
+        self._clear_figure()
+        self.fig.suptitle(f"성능 비교 결과 (배열 크기: {self.array_size})", fontsize=14)
+
+        ax_comparisons = self.fig.add_axes([0.08, 0.2, 0.4, 0.6])
+        ax_time = self.fig.add_axes([0.55, 0.2, 0.4, 0.6])
+
+        names = list(result.keys())
+        comparisons = [result[name]["comparisons"] for name in names]
+        elapsed_ms = [result[name]["elapsed_time"] * 1000 for name in names]
+
+        bars1 = ax_comparisons.bar(names, comparisons, color="steelblue")
+        ax_comparisons.set_title("비교 횟수")
+        ax_comparisons.tick_params(axis="x", rotation=30)
+        for bar, value in zip(bars1, comparisons):
+            ax_comparisons.text(
+                bar.get_x() + bar.get_width() / 2, bar.get_height(),
+                str(value), ha="center", va="bottom",
+            )
+
+        bars2 = ax_time.bar(names, elapsed_ms, color="indianred")
+        ax_time.set_title("실행 시간 (ms)")
+        ax_time.tick_params(axis="x", rotation=30)
+        for bar, value in zip(bars2, elapsed_ms):
+            ax_time.text(
+                bar.get_x() + bar.get_width() / 2, bar.get_height(),
+                f"{value:.2f}", ha="center", va="bottom",
+            )
+
+        menu_ax = self.fig.add_axes([0.4, 0.02, 0.2, 0.06])
+        menu_button = Button(menu_ax, "메뉴로")
+        menu_button.on_clicked(lambda event: self.show_menu())
+        self._widgets.append(menu_button)
+
+        self.fig.canvas.draw_idle()

@@ -140,3 +140,43 @@ def test_show_menu_after_sort_returns_to_menu_screen():
     viz.show_sort("버블 정렬")
     viz.show_menu()
     assert len(viz.fig.axes) == len(metrics.ALGORITHMS) + 1
+
+
+def test_show_compare_setup_creates_slider_and_two_buttons():
+    viz = SortVisualizer()
+    viz.show_compare_setup()
+    # 배열 크기 슬라이더 1개 + 측정 시작 버튼 + 메뉴로 버튼 = 3개 Axes
+    assert len(viz.fig.axes) == 3
+
+
+def test_show_compare_result_creates_two_subplots_with_six_bars_each():
+    viz = SortVisualizer()
+    fake_result = {
+        name: {"comparisons": 100, "array_accesses": 50, "elapsed_time": 0.01}
+        for name in metrics.ALGORITHMS
+    }
+    viz.show_compare_result(fake_result)
+    bar_axes = [ax for ax in viz.fig.axes if ax.patches]
+    assert len(bar_axes) == 2
+    for ax in bar_axes:
+        assert len(ax.patches) == 6
+
+
+def test_run_compare_uses_slider_value_as_array_size(monkeypatch):
+    viz = SortVisualizer()
+    viz.show_compare_setup()
+    viz.compare_size_slider.set_val(15)
+
+    captured = {}
+
+    def fake_run_comparison(array):
+        captured["size"] = len(array)
+        return {
+            name: {"comparisons": 1, "array_accesses": 1, "elapsed_time": 0.0}
+            for name in metrics.ALGORITHMS
+        }
+
+    monkeypatch.setattr(metrics, "run_comparison", fake_run_comparison)
+    viz._run_compare()
+    assert captured["size"] == 15
+    assert viz.array_size == 15
