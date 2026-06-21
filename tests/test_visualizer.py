@@ -8,10 +8,13 @@ import pytest
 from visualizer import (
     compute_bar_colors,
     speed_to_interval,
+    speed_to_frame_step,
+    skip_frames,
     DEFAULT_COLOR,
     COMPARING_COLOR,
     SWAPPING_COLOR,
     SORTED_COLOR,
+    MAX_SPEED,
 )
 
 
@@ -51,6 +54,44 @@ def test_speed_to_interval_rejects_non_positive_speed():
         speed_to_interval(0)
 
 
+def test_speed_to_frame_step_is_one_at_low_speed():
+    # 기본 속도(1.0x) 이하에서는 프레임을 건너뛰지 않는다 (기존 동작 유지)
+    assert speed_to_frame_step(0.25) == 1
+    assert speed_to_frame_step(1.0) == 1
+
+
+def test_speed_to_frame_step_increases_with_speed():
+    assert speed_to_frame_step(MAX_SPEED) == round(MAX_SPEED)
+    assert speed_to_frame_step(MAX_SPEED) > speed_to_frame_step(1.0)
+
+
+def test_speed_to_frame_step_rejects_non_positive_speed():
+    with pytest.raises(ValueError):
+        speed_to_frame_step(0)
+
+
+def test_skip_frames_with_step_one_yields_every_frame():
+    frames = list(skip_frames(iter([1, 2, 3, 4]), step=1))
+    assert frames == [1, 2, 3, 4]
+
+
+def test_skip_frames_with_step_three_keeps_every_third_and_final_frame():
+    # 0, 3번 인덱스가 step=3에 해당하고, 마지막 프레임(인덱스 4)은
+    # step에 맞지 않아도 항상 포함되어야 한다.
+    frames = list(skip_frames(iter([10, 11, 12, 13, 14]), step=3))
+    assert frames == [10, 13, 14]
+
+
+def test_skip_frames_does_not_duplicate_final_frame_when_aligned():
+    # step=2일 때 마지막 인덱스(2)가 이미 step에 맞아 한 번만 나와야 한다.
+    frames = list(skip_frames(iter([0, 1, 2]), step=2))
+    assert frames == [0, 2]
+
+
+def test_skip_frames_with_empty_input_yields_nothing():
+    assert list(skip_frames(iter([]), step=3)) == []
+
+
 from visualizer import SortVisualizer
 import metrics
 
@@ -77,6 +118,27 @@ def test_clear_figure_resets_widgets_list():
     viz._clear_figure()
     assert viz._widgets == []
     assert viz.fig.axes == []
+
+
+def test_build_frame_source_skips_frames_at_high_speed():
+    viz = SortVisualizer()
+    viz.array_size = 30
+    viz.speed = MAX_SPEED
+    viz.show_sort("버블 정렬")
+
+    skipped_count = sum(1 for _ in viz._build_frame_source())
+    full_count = sum(1 for _ in metrics.ALGORITHMS["버블 정렬"](list(viz.current_array)))
+    assert skipped_count < full_count
+
+
+def test_build_frame_source_does_not_skip_at_default_speed():
+    viz = SortVisualizer()
+    viz.array_size = 30
+    viz.show_sort("버블 정렬")  # 기본 속도(1.0x)
+
+    full_count = sum(1 for _ in viz._build_frame_source())
+    expected_count = sum(1 for _ in metrics.ALGORITHMS["버블 정렬"](list(viz.current_array)))
+    assert full_count == expected_count
 
 
 def test_show_sort_creates_one_bar_per_array_element():

@@ -22,7 +22,7 @@ SORTED_COLOR = "navy"
 BASE_INTERVAL_MS = 200  # 속도 1.0x일 때 애니메이션 프레임 간 간격(ms)
 
 MIN_SIZE, MAX_SIZE, DEFAULT_SIZE = 10, 100, 50
-MIN_SPEED, MAX_SPEED, DEFAULT_SPEED = 0.25, 3.0, 1.0
+MIN_SPEED, MAX_SPEED, DEFAULT_SPEED = 0.25, 10.0, 1.0
 
 
 def compute_bar_colors(n, info):
@@ -44,11 +44,43 @@ def compute_bar_colors(n, info):
 
 
 def speed_to_interval(speed):
-    """속도 배수(0.25x~3x)를 matplotlib FuncAnimation의 interval(ms)로
+    """속도 배수(0.25x~10x)를 matplotlib FuncAnimation의 interval(ms)로
     변환한다. 속도가 빠를수록 프레임 간 간격은 짧아진다."""
     if speed <= 0:
         raise ValueError("speed는 0보다 커야 합니다")
     return BASE_INTERVAL_MS / speed
+
+
+def speed_to_frame_step(speed):
+    """속도 배수를 "몇 프레임마다 하나씩 그릴지" 나타내는 정수로 변환한다.
+
+    interval만 줄이면 matplotlib이 매 프레임을 실제로 다시 그리는
+    시간(렌더링 오버헤드) 때문에 체감 속도가 한계에 부딪힌다. 특히
+    배열 크기가 클 때 O(n^2) 알고리즘은 프레임 수가 수천 개에 달해
+    interval 조절만으로는 충분히 빨라지지 않는다. 그래서 1.0x를
+    넘는 속도에서는 일부 프레임을 건너뛰어(skip) 실제로 그리는
+    프레임 수 자체를 줄인다 (1.0x 이하에서는 모든 프레임을 그대로
+    보여줘 기존 동작을 그대로 유지한다).
+    """
+    if speed <= 0:
+        raise ValueError("speed는 0보다 커야 합니다")
+    return max(1, round(speed))
+
+
+def skip_frames(frames, step):
+    """frames에서 step개마다 하나씩만 골라 yield하되, 마지막 프레임은
+    step에 맞지 않아도 항상 포함한다 (빠르게 재생하더라도 정렬이
+    완료된 최종 상태는 반드시 보여주기 위함). matplotlib에 의존하지
+    않는 순수 함수라서 GUI 없이도 단위 테스트가 가능하다."""
+    last = None
+    last_was_yielded = False
+    for i, frame in enumerate(frames):
+        last = frame
+        last_was_yielded = (i % step == 0)
+        if last_was_yielded:
+            yield frame
+    if last is not None and not last_was_yielded:
+        yield last
 
 
 class SortVisualizer:
@@ -146,16 +178,22 @@ class SortVisualizer:
         menu_button.on_clicked(lambda event: self.show_menu())
         self._widgets.append(menu_button)
 
-        generator = metrics.ALGORITHMS[self._algorithm_name](self.current_array)
         self._animation = FuncAnimation(
             self.fig,
             self._animate,
-            frames=generator,
+            frames=self._build_frame_source(),
             interval=speed_to_interval(self.speed),
             repeat=False,
             cache_frame_data=False,
         )
         self.fig.canvas.draw_idle()
+
+    def _build_frame_source(self):
+        # 속도가 1.0x를 넘으면 일부 프레임을 건너뛰어 큰 배열에서도
+        # 체감 속도가 충분히 빨라지도록 한다 (Task 12 이후 추가된 개선).
+        generator = metrics.ALGORITHMS[self._algorithm_name](self.current_array)
+        step = speed_to_frame_step(self.speed)
+        return skip_frames(generator, step)
 
     def _animate(self, frame):
         # FuncAnimation이 매 프레임마다 호출한다. frame은 알고리즘
