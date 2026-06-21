@@ -49,3 +49,31 @@ def test_speed_to_interval_higher_speed_means_shorter_interval():
 def test_speed_to_interval_rejects_non_positive_speed():
     with pytest.raises(ValueError):
         speed_to_interval(0)
+
+
+from visualizer import SortVisualizer
+import metrics
+
+
+def test_show_menu_creates_one_button_per_algorithm_plus_compare_button():
+    viz = SortVisualizer()
+    viz.show_menu()
+    # 6개 알고리즘 버튼 + "전체 성능 비교" 버튼 1개 = 7개 Axes
+    assert len(viz.fig.axes) == len(metrics.ALGORITHMS) + 1
+
+
+def test_show_menu_button_labels_include_all_algorithm_names():
+    viz = SortVisualizer()
+    viz.show_menu()
+    labels = {button.label.get_text() for button in viz._widgets}
+    assert set(metrics.ALGORITHMS.keys()).issubset(labels)
+    assert "전체 성능 비교" in labels
+
+
+def test_clear_figure_resets_widgets_list():
+    viz = SortVisualizer()
+    viz.show_menu()
+    assert len(viz._widgets) > 0
+    viz._clear_figure()
+    assert viz._widgets == []
+    assert viz.fig.axes == []
