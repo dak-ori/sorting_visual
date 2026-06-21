@@ -1,5 +1,12 @@
 """6개 정렬 알고리즘 제너레이터의 정확성과 측정값을 검증한다."""
-from algorithms import bubble_sort, selection_sort, insertion_sort, merge_sort, quick_sort
+from algorithms import (
+    bubble_sort,
+    selection_sort,
+    insertion_sort,
+    merge_sort,
+    quick_sort,
+    heap_sort,
+)
 from tests.helpers import drain, assert_valid_trace
 
 
@@ -119,3 +126,25 @@ def test_quick_sort_worst_case_already_sorted():
     original = [1, 2, 3, 4, 5]
     frames = drain(quick_sort(original))
     assert_valid_trace(frames, original)
+
+
+def test_heap_sort_sorts_and_tracks_metrics():
+    original = [5, 2, 4, 1, 3]
+    frames = drain(heap_sort(original))
+    assert_valid_trace(frames, original)
+    assert frames[-1][1]["comparisons"] > 0
+
+
+def test_heap_sort_empty_array():
+    frames = drain(heap_sort([]))
+    assert_valid_trace(frames, [])
+
+
+def test_heap_sort_single_element():
+    frames = drain(heap_sort([42]))
+    assert_valid_trace(frames, [42])
+
+
+def test_heap_sort_two_elements():
+    frames = drain(heap_sort([2, 1]))
+    assert_valid_trace(frames, [2, 1])

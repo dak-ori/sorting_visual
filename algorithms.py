@@ -268,6 +268,78 @@ def quick_sort(array):
     yield list(arr), make_info()
 
 
+def heap_sort(array):
+    """힙 정렬.
+
+    배열 전체를 최대 힙(부모가 항상 자식보다 큰 이진 트리)으로 만든 뒤,
+    힙의 루트(=배열의 최댓값)를 배열 맨 끝과 교환해서 정렬 확정시키고,
+    힙의 크기를 1 줄여서 같은 과정을 반복한다. 힙을 만드는 과정과
+    원소 하나를 제거한 뒤 힙 속성을 복구하는 과정(heapify, sift-down)이
+    모두 O(log n)이고, 이를 n번 반복하므로 입력 상태와 무관하게 항상
+    O(n log n)이다.
+
+    시간복잡도: 최선/평균/최악 O(n log n)
+    공간복잡도: O(1) (배열 내부에서 힙을 구성, 추가 배열 불필요)
+    안정 정렬: 아니오
+    """
+    arr = list(array)
+    n = len(arr)
+    state = {"comparisons": 0, "array_accesses": 0}
+    sorted_indices = set()
+
+    def make_info(comparing=None, swapping=None):
+        return {
+            "comparing": comparing,
+            "swapping": swapping,
+            "sorted_indices": set(sorted_indices),
+            "comparisons": state["comparisons"],
+            "array_accesses": state["array_accesses"],
+        }
+
+    def heapify(heap_size, root):
+        # root를 기준으로 두 자식 중 더 큰 값을 찾아, root보다 크면
+        # 자리를 바꾸고(sift-down) 그 아래에서 같은 과정을 재귀로 반복한다.
+        largest = root
+        left = 2 * root + 1
+        right = 2 * root + 2
+
+        if left < heap_size:
+            state["comparisons"] += 1
+            yield list(arr), make_info(comparing=(left, largest))
+            if arr[left] > arr[largest]:
+                largest = left
+        if right < heap_size:
+            state["comparisons"] += 1
+            yield list(arr), make_info(comparing=(right, largest))
+            if arr[right] > arr[largest]:
+                largest = right
+
+        if largest != root:
+            arr[root], arr[largest] = arr[largest], arr[root]
+            state["array_accesses"] += 2
+            yield list(arr), make_info(swapping=(root, largest))
+            yield from heapify(heap_size, largest)
+
+    if n == 0:
+        yield list(arr), make_info()
+        return
+
+    # 1단계: 배열 전체를 최대 힙으로 구성한다 (마지막 내부 노드부터 거꾸로)
+    for root in range(n // 2 - 1, -1, -1):
+        yield from heapify(n, root)
+
+    # 2단계: 루트(최댓값)를 맨 끝으로 보내고 힙 크기를 줄여가며 반복한다
+    for end in range(n - 1, 0, -1):
+        arr[0], arr[end] = arr[end], arr[0]
+        state["array_accesses"] += 2
+        yield list(arr), make_info(swapping=(0, end))
+        sorted_indices.add(end)
+        yield from heapify(end, 0)
+
+    sorted_indices.add(0)
+    yield list(arr), make_info()
+
+
 def selection_sort(array):
     """선택 정렬.
 
