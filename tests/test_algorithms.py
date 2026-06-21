@@ -1,5 +1,5 @@
 """6개 정렬 알고리즘 제너레이터의 정확성과 측정값을 검증한다."""
-from algorithms import bubble_sort, selection_sort, insertion_sort
+from algorithms import bubble_sort, selection_sort, insertion_sort, merge_sort
 from tests.helpers import drain, assert_valid_trace
 
 
@@ -69,3 +69,28 @@ def test_insertion_sort_already_sorted_has_fewer_comparisons_than_reversed():
     sorted_frames = drain(insertion_sort(sorted_input))
     reversed_frames = drain(insertion_sort(reversed_input))
     assert sorted_frames[-1][1]["comparisons"] < reversed_frames[-1][1]["comparisons"]
+
+
+def test_merge_sort_sorts_and_tracks_metrics():
+    original = [5, 2, 4, 1, 3]
+    frames = drain(merge_sort(original))
+    assert_valid_trace(frames, original)
+    assert frames[-1][1]["comparisons"] > 0
+
+
+def test_merge_sort_empty_array():
+    frames = drain(merge_sort([]))
+    assert_valid_trace(frames, [])
+
+
+def test_merge_sort_single_element():
+    frames = drain(merge_sort([42]))
+    assert_valid_trace(frames, [42])
+
+
+def test_merge_sort_intermediate_frames_have_empty_sorted_indices():
+    # 병합 정렬은 분할정복 특성상 마지막 프레임 전까지는
+    # 어떤 인덱스도 "최종 확정"되었다고 표시하지 않는다.
+    frames = drain(merge_sort([5, 2, 4, 1, 3]))
+    for _, info in frames[:-1]:
+        assert info["sorted_indices"] == set()

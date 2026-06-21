@@ -14,7 +14,7 @@
 
 - Python 3, matplotlib, numpy만 사용 (외부 의존성 추가 금지)
 - 6개 정렬 알고리즘(`bubble_sort`, `selection_sort`, `insertion_sort`, `merge_sort`, `quick_sort`, `heap_sort`)은 모두 제너레이터로 구현하고, 동일한 `yield array.copy_or_list(), info_dict` 인터페이스를 따른다 (`info_dict` 키: `comparing`, `swapping`, `sorted_indices`, `comparisons`, `array_accesses`)
-- `comparing`/`swapping` 값은 길이 1~2의 인덱스 튜플 또는 `None`
+- `comparing`/`swapping` 값은 인덱스 튜플 또는 `None` (대부분 길이 2이지만, 병합 정렬의 병합 완료 프레임처럼 구간 전체를 한 번에 쓰는 경우 더 긴 튜플일 수 있다 — Task 5에서 구체적인 이유 설명)
 - `array_accesses`는 "배열에 값을 쓴 횟수"로 통일 (swap 1회 = 2, 단일 대입 1회 = 1)
 - 각 알고리즘 함수에는 동작 원리를 설명하는 한글 docstring, 핵심 분기에는 한글 인라인 주석 필수
 - 모듈 분리: `algorithms.py` / `visualizer.py` / `metrics.py` / `font_utils.py` / `main.py` (역할 분리는 설계 문서 2절 참조)
@@ -186,8 +186,11 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'algorithms'`
     yield 현재 배열 스냅샷(list), info 딕셔너리
 
 info 딕셔너리 키:
-    comparing      : 비교 중인 인덱스 튜플(길이 1~2) 또는 None
-    swapping       : 교환/이동 중인 인덱스 튜플(길이 1~2) 또는 None
+    comparing      : 비교 중인 인덱스 튜플(보통 길이 2) 또는 None
+    swapping       : 교환/이동/일괄 쓰기 중인 인덱스 튜플 또는 None
+                     (대부분 길이 2의 swap이지만, 병합 정렬의 병합
+                     완료 프레임처럼 구간 전체를 한 번에 쓰는 경우
+                     더 긴 인덱스 튜플일 수 있다)
     sorted_indices : 정렬이 확정된 인덱스 집합(set)
     comparisons    : 누적 비교 횟수
     array_accesses : 누적 배열 쓰기(대입) 횟수
@@ -572,7 +575,12 @@ def merge_sort(array):
 
     def merge(left, mid, right):
         # 정렬된 두 구간 [left, mid]와 [mid+1, right]를 하나의 정렬된
-        # 구간으로 합친다.
+        # 구간으로 합친다. 비교 단계에서는 원본 값을 그대로 보여주고,
+        # 병합이 끝나면 갱신된 구간 전체를 한 프레임으로 보여준다. (한
+        # 칸씩 되돌려 쓰는 중간 과정을 그대로 yield하면, 아직 옮기지
+        # 않은 원본 값과 새로 옮긴 값이 같은 자리에 겹쳐 보이는 시점이
+        # 생겨 "스냅샷은 항상 원본과 같은 원소 구성을 유지해야 한다"는
+        # 불변조건이 깨진다.)
         merged = []
         i, j = left, mid + 1
         while i <= mid and j <= right:
@@ -593,10 +601,9 @@ def merge_sort(array):
             j += 1
 
         for offset, value in enumerate(merged):
-            idx = left + offset
-            arr[idx] = value
-            state["array_accesses"] += 1
-            yield list(arr), make_info(swapping=(idx,))
+            arr[left + offset] = value
+        state["array_accesses"] += len(merged)
+        yield list(arr), make_info(swapping=tuple(range(left, right + 1)))
 
     def sort_range(left, right):
         # [left, right] 구간을 분할정복으로 정렬한다.
@@ -615,6 +622,14 @@ def merge_sort(array):
 
     yield list(arr), make_info(sorted_indices=range(n))
 ```
+
+**구현 중 발견된 버그 수정:** 원래 계획은 병합 결과를 한 칸씩 `arr`에
+되돌려 쓰면서 매번 yield하는 방식이었으나, 이 경우 아직 옮기지 않은
+원본 값과 막 옮겨놓은 새 값이 같은 자리에 겹쳐 보이는(중복되는) 시점이
+생겨 `assert_valid_trace`의 "원소 보존" 불변조건을 깨뜨렸다 (Task 4의
+삽입 정렬과 같은 종류의 문제). 병합이 끝난 뒤 구간 전체를 한 번에
+반영하는 단일 프레임으로 바꿔 수정했다. 이로 인해 `swapping` 필드가
+2개를 넘는 인덱스를 담을 수 있게 되어 Global Constraints를 갱신했다.
 
 - [ ] **Step 4: 테스트 실행해서 통과 확인**
 
