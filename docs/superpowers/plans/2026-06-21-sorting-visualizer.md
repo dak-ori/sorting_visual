@@ -419,12 +419,14 @@ Expected: FAIL with `ImportError: cannot import name 'insertion_sort'`
 `algorithms.py`에 추가:
 ```python
 def insertion_sort(array):
-    """삽입 정렬.
+    """삽입 정렬 (인접 교환 방식).
 
-    앞쪽부터 "정렬된 부분"을 유지하면서, 그 다음 원소(key)를 정렬된
-    부분의 알맞은 위치까지 한 칸씩 옮겨가며 끼워 넣는다. 이미 정렬에
-    가까운 배열일수록 비교/이동 횟수가 급격히 줄어드는 것이 특징이다
-    (최선 O(n)). 카드를 손으로 정렬할 때의 방식과 같다.
+    앞쪽부터 "정렬된 부분"을 유지하면서, 그 다음 원소를 정렬된 부분의
+    알맞은 위치까지 바로 앞 원소와 인접 교환(swap)을 반복해 끼워 넣는다.
+    원소를 배열 밖으로 잠시 빼내는 대신 항상 교환으로만 이동시키므로,
+    중간 과정의 모든 스냅샷이 원본과 같은 원소 구성을 유지한다(시각화에
+    유리함). 이미 정렬에 가까운 배열일수록 비교/교환 횟수가 급격히
+    줄어드는 것이 특징이다(최선 O(n)).
 
     시간복잡도: 최선 O(n), 평균/최악 O(n^2)
     공간복잡도: O(1)
@@ -442,29 +444,25 @@ def insertion_sort(array):
         }
 
     for i in range(1, n):
-        key = arr[i]
-        j = i - 1
-        while j >= 0:
+        j = i
+        while j > 0:
             comparisons += 1
             yield list(arr), {
-                "comparing": (j, j + 1), "swapping": None,
+                "comparing": (j - 1, j), "swapping": None,
                 "sorted_indices": set(range(i)),
                 "comparisons": comparisons, "array_accesses": array_accesses,
             }
-            if arr[j] > key:
-                # key보다 큰 값을 한 칸 뒤로 밀어서 자리를 비운다
-                arr[j + 1] = arr[j]
-                array_accesses += 1
-                j -= 1
+            if arr[j - 1] > arr[j]:
+                arr[j - 1], arr[j] = arr[j], arr[j - 1]
+                array_accesses += 2
                 yield list(arr), {
-                    "comparing": None, "swapping": (j + 1, j + 2),
+                    "comparing": None, "swapping": (j - 1, j),
                     "sorted_indices": set(range(i)),
                     "comparisons": comparisons, "array_accesses": array_accesses,
                 }
+                j -= 1
             else:
                 break
-        arr[j + 1] = key
-        array_accesses += 1
 
     yield list(arr), {
         "comparing": None, "swapping": None,
@@ -472,6 +470,13 @@ def insertion_sort(array):
         "comparisons": comparisons, "array_accesses": array_accesses,
     }
 ```
+
+**구현 중 발견된 버그 수정:** 원래 계획은 `key`를 배열 밖 변수로 빼내는
+표준 삽입 정렬 방식이었으나, 이 경우 `key`가 빠진 자리에 인접 값이
+복제되어 중간 스냅샷이 일시적으로 원본과 다른 원소 구성을 갖게 되어
+`assert_valid_trace`의 "원소 보존" 불변조건을 깨뜨렸다. 모든 이동을
+실제 교환(swap)으로 수행하는 방식으로 수정해 항상 유효한 순열을
+유지하도록 했다 (시간복잡도와 동작 특성은 동일).
 
 - [ ] **Step 4: 테스트 실행해서 통과 확인**
 

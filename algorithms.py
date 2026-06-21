@@ -67,6 +67,59 @@ def bubble_sort(array):
     }
 
 
+def insertion_sort(array):
+    """삽입 정렬 (인접 교환 방식).
+
+    앞쪽부터 "정렬된 부분"을 유지하면서, 그 다음 원소를 정렬된 부분의
+    알맞은 위치까지 바로 앞 원소와 인접 교환(swap)을 반복해 끼워 넣는다.
+    원소를 배열 밖으로 잠시 빼내는 대신 항상 교환으로만 이동시키므로,
+    중간 과정의 모든 스냅샷이 원본과 같은 원소 구성을 유지한다(시각화에
+    유리함). 이미 정렬에 가까운 배열일수록 비교/교환 횟수가 급격히
+    줄어드는 것이 특징이다(최선 O(n)).
+
+    시간복잡도: 최선 O(n), 평균/최악 O(n^2)
+    공간복잡도: O(1)
+    안정 정렬: 예
+    """
+    arr = list(array)
+    n = len(arr)
+    comparisons = 0
+    array_accesses = 0
+
+    if n > 0:
+        yield list(arr), {
+            "comparing": None, "swapping": None,
+            "sorted_indices": {0}, "comparisons": 0, "array_accesses": 0,
+        }
+
+    for i in range(1, n):
+        j = i
+        while j > 0:
+            comparisons += 1
+            yield list(arr), {
+                "comparing": (j - 1, j), "swapping": None,
+                "sorted_indices": set(range(i)),
+                "comparisons": comparisons, "array_accesses": array_accesses,
+            }
+            if arr[j - 1] > arr[j]:
+                arr[j - 1], arr[j] = arr[j], arr[j - 1]
+                array_accesses += 2
+                yield list(arr), {
+                    "comparing": None, "swapping": (j - 1, j),
+                    "sorted_indices": set(range(i)),
+                    "comparisons": comparisons, "array_accesses": array_accesses,
+                }
+                j -= 1
+            else:
+                break
+
+    yield list(arr), {
+        "comparing": None, "swapping": None,
+        "sorted_indices": set(range(n)),
+        "comparisons": comparisons, "array_accesses": array_accesses,
+    }
+
+
 def selection_sort(array):
     """선택 정렬.
 
