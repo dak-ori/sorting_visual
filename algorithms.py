@@ -200,6 +200,74 @@ def merge_sort(array):
     yield list(arr), make_info(sorted_indices=range(n))
 
 
+def quick_sort(array):
+    """퀵 정렬 (Lomuto partition, 마지막 원소를 피벗으로 사용).
+
+    피벗을 하나 골라 피벗보다 작은 값은 왼쪽, 큰 값은 오른쪽으로
+    나누는 분할(partition)을 수행한 뒤, 분할된 양쪽 구간을 재귀적으로
+    정렬한다. 분할이 끝나면 피벗은 항상 자기 자리에 확정되므로 그
+    인덱스를 즉시 sorted_indices에 추가한다. 평균적으로 양쪽을 절반씩
+    나누어 O(n log n)이지만, 이미 정렬되었거나 역순인 배열에서는 매번
+    한쪽 구간이 비어버려 O(n^2)까지 느려질 수 있다.
+
+    시간복잡도: 평균 O(n log n), 최악 O(n^2)
+    공간복잡도: O(log n) (재귀 호출 스택, 평균적인 경우)
+    안정 정렬: 아니오
+    """
+    arr = list(array)
+    n = len(arr)
+    state = {"comparisons": 0, "array_accesses": 0}
+    sorted_indices = set()
+
+    def make_info(comparing=None, swapping=None):
+        return {
+            "comparing": comparing,
+            "swapping": swapping,
+            "sorted_indices": set(sorted_indices),
+            "comparisons": state["comparisons"],
+            "array_accesses": state["array_accesses"],
+        }
+
+    def partition(low, high):
+        # arr[high]를 피벗으로 삼아, 피벗보다 작은 값들을 앞쪽
+        # (store_idx 이전)으로 모은다. 피벗의 최종 위치를 반환한다.
+        pivot = arr[high]
+        store_idx = low
+        for i in range(low, high):
+            state["comparisons"] += 1
+            yield list(arr), make_info(comparing=(i, high))
+            if arr[i] < pivot:
+                if i != store_idx:
+                    arr[i], arr[store_idx] = arr[store_idx], arr[i]
+                    state["array_accesses"] += 2
+                    yield list(arr), make_info(swapping=(i, store_idx))
+                store_idx += 1
+        if store_idx != high:
+            arr[store_idx], arr[high] = arr[high], arr[store_idx]
+            state["array_accesses"] += 2
+            yield list(arr), make_info(swapping=(store_idx, high))
+        sorted_indices.add(store_idx)
+        return store_idx
+
+    def quick_sort_recursive(low, high):
+        if low >= high:
+            if low == high:
+                sorted_indices.add(low)
+            return
+        pivot_idx = yield from partition(low, high)
+        yield from quick_sort_recursive(low, pivot_idx - 1)
+        yield from quick_sort_recursive(pivot_idx + 1, high)
+
+    if n == 0:
+        yield list(arr), make_info()
+        return
+
+    yield from quick_sort_recursive(0, n - 1)
+
+    sorted_indices.update(range(n))
+    yield list(arr), make_info()
+
+
 def selection_sort(array):
     """선택 정렬.
 
