@@ -65,3 +65,50 @@ def bubble_sort(array):
         "sorted_indices": set(sorted_indices),
         "comparisons": comparisons, "array_accesses": array_accesses,
     }
+
+
+def selection_sort(array):
+    """선택 정렬.
+
+    정렬되지 않은 영역 전체를 훑어 최솟값의 인덱스를 찾고, 그 값을
+    정렬되지 않은 영역의 맨 앞으로 보내는 과정을 반복한다. 매 패스마다
+    정렬 확정 영역이 앞에서부터 늘어난다. 비교 횟수는 입력 상태와
+    무관하게 항상 일정하지만(O(n^2)), 교환은 패스당 최대 1번만 일어나
+    버블 정렬보다 array_accesses가 훨씬 적다.
+
+    시간복잡도: 최선/평균/최악 O(n^2)
+    공간복잡도: O(1)
+    안정 정렬: 아니오 (최솟값을 멀리서 가져와 끼워넣으면서 순서가 바뀔 수 있음)
+    """
+    arr = list(array)
+    n = len(arr)
+    comparisons = 0
+    array_accesses = 0
+    sorted_indices = set()
+
+    for i in range(n):
+        min_idx = i
+        for j in range(i + 1, n):
+            comparisons += 1
+            yield list(arr), {
+                "comparing": (min_idx, j), "swapping": None,
+                "sorted_indices": set(sorted_indices),
+                "comparisons": comparisons, "array_accesses": array_accesses,
+            }
+            if arr[j] < arr[min_idx]:
+                min_idx = j
+        if min_idx != i:
+            arr[i], arr[min_idx] = arr[min_idx], arr[i]
+            array_accesses += 2
+            yield list(arr), {
+                "comparing": None, "swapping": (i, min_idx),
+                "sorted_indices": set(sorted_indices),
+                "comparisons": comparisons, "array_accesses": array_accesses,
+            }
+        sorted_indices.add(i)
+
+    yield list(arr), {
+        "comparing": None, "swapping": None,
+        "sorted_indices": set(sorted_indices),
+        "comparisons": comparisons, "array_accesses": array_accesses,
+    }
