@@ -6,8 +6,11 @@
     교환/이동 중인 원소 : SWAPPING_COLOR (초록)
     정렬 완료된 원소 : SORTED_COLOR (진한 파랑)
 """
+import time
+
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
+from matplotlib.animation import FuncAnimation
+from matplotlib.widgets import Button, Slider
 
 import metrics
 
@@ -96,3 +99,93 @@ class SortVisualizer:
         self._widgets.append(compare_button)
 
         self.fig.canvas.draw_idle()
+
+    def show_sort(self, algorithm_name):
+        self._clear_figure()
+        self.current_array = metrics.generate_array(self.array_size)
+        self._algorithm_name = algorithm_name
+        self._paused = False
+        self._setup_sort_screen()
+
+    def _setup_sort_screen(self):
+        self.ax_bars = self.fig.add_axes([0.1, 0.35, 0.8, 0.5])
+        self.bars = self.ax_bars.bar(
+            range(len(self.current_array)), self.current_array, color=DEFAULT_COLOR,
+        )
+        self.ax_bars.set_title(self._algorithm_name)
+        self.ax_bars.set_xlim(-0.5, len(self.current_array) - 0.5)
+
+        self.info_text = self.fig.text(0.1, 0.92, "", fontsize=11)
+        self._start_time = time.perf_counter()
+        self._update_info_text({"comparisons": 0, "array_accesses": 0}, 0.0)
+
+        size_ax = self.fig.add_axes([0.15, 0.22, 0.3, 0.04])
+        self.size_slider = Slider(
+            size_ax, "배열 크기", MIN_SIZE, MAX_SIZE, valinit=self.array_size, valstep=1,
+        )
+        self._widgets.append(self.size_slider)
+
+        speed_ax = self.fig.add_axes([0.55, 0.22, 0.3, 0.04])
+        self.speed_slider = Slider(
+            speed_ax, "속도", MIN_SPEED, MAX_SPEED, valinit=self.speed,
+        )
+        self._widgets.append(self.speed_slider)
+
+        restart_ax = self.fig.add_axes([0.15, 0.1, 0.2, 0.06])
+        restart_button = Button(restart_ax, "재시작")
+        restart_button.on_clicked(lambda event: self._restart_sort())
+        self._widgets.append(restart_button)
+
+        pause_ax = self.fig.add_axes([0.4, 0.1, 0.2, 0.06])
+        self.pause_button = Button(pause_ax, "일시정지")
+        self.pause_button.on_clicked(lambda event: self._toggle_pause())
+        self._widgets.append(self.pause_button)
+
+        menu_ax = self.fig.add_axes([0.65, 0.1, 0.2, 0.06])
+        menu_button = Button(menu_ax, "메뉴로")
+        menu_button.on_clicked(lambda event: self.show_menu())
+        self._widgets.append(menu_button)
+
+        generator = metrics.ALGORITHMS[self._algorithm_name](self.current_array)
+        self._animation = FuncAnimation(
+            self.fig,
+            self._animate,
+            frames=generator,
+            interval=speed_to_interval(self.speed),
+            repeat=False,
+            cache_frame_data=False,
+        )
+        self.fig.canvas.draw_idle()
+
+    def _animate(self, frame):
+        # FuncAnimation이 매 프레임마다 호출한다. frame은 알고리즘
+        # 제너레이터가 yield한 (array, info) 튜플이다.
+        array, info = frame
+        for bar, height in zip(self.bars, array):
+            bar.set_height(height)
+        colors = compute_bar_colors(len(array), info)
+        for bar, color in zip(self.bars, colors):
+            bar.set_color(color)
+        elapsed = time.perf_counter() - self._start_time
+        self._update_info_text(info, elapsed)
+        return list(self.bars) + [self.info_text]
+
+    def _update_info_text(self, info, elapsed):
+        self.info_text.set_text(
+            f"비교 횟수: {info['comparisons']}   "
+            f"배열 접근: {info['array_accesses']}   "
+            f"경과 시간: {elapsed:.2f}s"
+        )
+
+    def _restart_sort(self):
+        self.array_size = int(self.size_slider.val)
+        self.speed = self.speed_slider.val
+        self.show_sort(self._algorithm_name)
+
+    def _toggle_pause(self):
+        if self._paused:
+            self._animation.event_source.start()
+        else:
+            self._animation.event_source.stop()
+        self._paused = not self._paused
+        self.pause_button.label.set_text("계속" if self._paused else "일시정지")

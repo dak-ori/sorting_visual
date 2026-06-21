@@ -77,3 +77,66 @@ def test_clear_figure_resets_widgets_list():
     viz._clear_figure()
     assert viz._widgets == []
     assert viz.fig.axes == []
+
+
+def test_show_sort_creates_one_bar_per_array_element():
+    viz = SortVisualizer()
+    viz.array_size = 8
+    viz.show_sort("버블 정렬")
+    assert len(viz.bars) == 8
+    assert viz.ax_bars.get_title() == "버블 정렬"
+
+
+def test_animate_updates_bar_heights_and_colors():
+    viz = SortVisualizer()
+    viz.array_size = 5
+    viz.show_sort("버블 정렬")
+    frame = (
+        [10, 20, 30, 40, 50],
+        {
+            "comparing": (0, 1), "swapping": None, "sorted_indices": set(),
+            "comparisons": 3, "array_accesses": 1,
+        },
+    )
+    viz._animate(frame)
+    heights = [bar.get_height() for bar in viz.bars]
+    assert heights == [10, 20, 30, 40, 50]
+    assert viz.bars[0].get_facecolor() == matplotlib.colors.to_rgba("red")
+
+
+def test_update_info_text_includes_comparisons_and_accesses():
+    viz = SortVisualizer()
+    viz.array_size = 5
+    viz.show_sort("버블 정렬")
+    viz._update_info_text({"comparisons": 7, "array_accesses": 3}, 1.23)
+    text = viz.info_text.get_text()
+    assert "7" in text
+    assert "3" in text
+
+
+def test_restart_sort_applies_new_slider_values():
+    viz = SortVisualizer()
+    viz.show_sort("버블 정렬")
+    viz.size_slider.set_val(20)
+    viz.speed_slider.set_val(2.0)
+    viz._restart_sort()
+    assert viz.array_size == 20
+    assert viz.speed == 2.0
+    assert len(viz.bars) == 20
+
+
+def test_toggle_pause_changes_button_label():
+    viz = SortVisualizer()
+    viz.show_sort("버블 정렬")
+    assert viz.pause_button.label.get_text() == "일시정지"
+    viz._toggle_pause()
+    assert viz.pause_button.label.get_text() == "계속"
+    viz._toggle_pause()
+    assert viz.pause_button.label.get_text() == "일시정지"
+
+
+def test_show_menu_after_sort_returns_to_menu_screen():
+    viz = SortVisualizer()
+    viz.show_sort("버블 정렬")
+    viz.show_menu()
+    assert len(viz.fig.axes) == len(metrics.ALGORITHMS) + 1
