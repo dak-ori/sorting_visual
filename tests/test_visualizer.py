@@ -204,6 +204,33 @@ def test_show_menu_after_sort_returns_to_menu_screen():
     assert len(viz.fig.axes) == len(metrics.ALGORITHMS) + 1
 
 
+def test_show_menu_after_animation_naturally_finishes_does_not_raise():
+    # FuncAnimation은 repeat=False일 때 프레임이 다 떨어지면 내부적으로
+    # event_source를 None으로 바꾼다. 정렬이 이미 끝난 뒤 "메뉴로"를
+    # 누르는 상황(이번에 보고된 버그)을 그대로 재현한다.
+    viz = SortVisualizer()
+    viz.array_size = 10
+    viz.show_sort("퀵 정렬")
+    while viz._animation._step():
+        pass
+    assert viz._animation.event_source is None  # 전제 조건 확인
+
+    viz.show_menu()  # 여기서 AttributeError가 나면 안 된다
+
+    assert len(viz.fig.axes) == len(metrics.ALGORITHMS) + 1
+
+
+def test_toggle_pause_after_animation_naturally_finishes_does_not_raise():
+    viz = SortVisualizer()
+    viz.array_size = 10
+    viz.show_sort("퀵 정렬")
+    while viz._animation._step():
+        pass
+    assert viz._animation.event_source is None  # 전제 조건 확인
+
+    viz._toggle_pause()  # 여기서도 AttributeError가 나면 안 된다
+
+
 def test_show_compare_setup_creates_slider_and_two_buttons():
     viz = SortVisualizer()
     viz.show_compare_setup()

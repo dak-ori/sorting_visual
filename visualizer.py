@@ -102,9 +102,13 @@ class SortVisualizer:
 
     def _clear_figure(self):
         # 애니메이션이 돌고 있으면 먼저 멈춘다 (멈추지 않으면 화면이
-        # 전환된 뒤에도 백그라운드에서 계속 갱신을 시도할 수 있다)
+        # 전환된 뒤에도 백그라운드에서 계속 갱신을 시도할 수 있다).
+        # 애니메이션이 이미 끝까지 다 돌았다면(repeat=False) matplotlib이
+        # event_source를 자체적으로 None으로 바꿔두므로, 멈출 대상이
+        # 없는 경우를 별도로 처리한다.
         if self._animation is not None:
-            self._animation.event_source.stop()
+            if self._animation.event_source is not None:
+                self._animation.event_source.stop()
             self._animation = None
         self.fig.clear()
         self._widgets = []
@@ -221,10 +225,13 @@ class SortVisualizer:
         self.show_sort(self._algorithm_name)
 
     def _toggle_pause(self):
-        if self._paused:
-            self._animation.event_source.start()
-        else:
-            self._animation.event_source.stop()
+        # 애니메이션이 이미 끝까지 다 돌았다면 event_source가 None이라
+        # 멈추거나 다시 시작할 대상이 없다 (_clear_figure와 같은 이유).
+        if self._animation is not None and self._animation.event_source is not None:
+            if self._paused:
+                self._animation.event_source.start()
+            else:
+                self._animation.event_source.stop()
         self._paused = not self._paused
         self.pause_button.label.set_text("계속" if self._paused else "일시정지")
 
